@@ -9,7 +9,8 @@ class ServerWorker:
 	PLAY = 'PLAY'
 	PAUSE = 'PAUSE'
 	TEARDOWN = 'TEARDOWN'
-	
+	FORWARD = 'FORWARD'
+
 	INIT = 0
 	READY = 1
 	PLAYING = 2
@@ -70,6 +71,23 @@ class ServerWorker:
 				# Get the RTP/UDP port from the last line
 				self.clientInfo['rtpPort'] = request[2].split(' ')[3]
 		
+		elif requestType == self.FORWARD:
+			if self.state != self.INIT:
+				print("processing FORWARD\n")
+				self.state = self.READY
+				self.clientInfo['event'].set()
+
+				frameNbr = int(request[3].split(": ")[1])
+				self.clientInfo['videoStream'].moveTo(frameNbr)
+
+				self.state = self.PLAYING
+				self.clientInfo["rtpSocket"] = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+
+				self.replyRtsp(self.OK_200, seq[1])
+
+				self.clientInfo['worker']= threading.Thread(target=self.sendRtp) 
+				self.clientInfo['worker'].start()
+
 		# Process PLAY request 		
 		elif requestType == self.PLAY:
 			if self.state == self.READY:
